@@ -9,6 +9,7 @@ import ij.ImageStack;
 import ij.gui.WaitForUserDialog;
 import ij.io.FileSaver;
 import ij.measure.Calibration;
+import ij.measure.ResultsTable;
 import ij.plugin.Duplicator;
 import ij.plugin.RGBStackMerge;
 import ij.process.ImageProcessor;
@@ -22,7 +23,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.swing.ImageIcon;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -31,11 +35,15 @@ import loci.common.services.ServiceException;
 import loci.formats.FormatException;
 import loci.formats.meta.IMetadata;
 import loci.plugins.util.ImageProcessorReader;
+import mcib3d.geom.Object3D;
+import mcib3d.geom.Objects3DPopulation;
 import mcib3d.geom.Point3D;
 import mcib3d.geom.Point3DInt;
+import mcib3d.geom.Voxel3D;
 import mcib3d.geom2.BoundingBox;
 import mcib3d.geom2.Object3DInt;
 import mcib3d.geom2.Objects3DIntPopulation;
+import mcib3d.geom2.VoxelInt;
 import mcib3d.geom2.measurements.MeasureCentroid;
 import mcib3d.geom2.measurements.MeasureIntensity;
 import mcib3d.geom2.measurements.MeasureVolume;
@@ -87,7 +95,7 @@ public class Tools {
     double minDotDOG = 1;
     double maxDotDOG = 2;
     
-    public String[] channelNames = {"PV", "WFA", "GFP"};
+    public String[] channelNames = {"PV", "WFA", "GFP", "DAPI"};
     public Calibration cal;
     
     private final ImageIcon icon = new ImageIcon(this.getClass().getResource("/Orion_icon.png"));
@@ -145,6 +153,21 @@ public class Tools {
     }
     
     /**
+     * Reset labels of the objects
+     */
+    public void resetLabels(Objects3DIntPopulation pop){
+        AtomicReference<Float> labelObject = new AtomicReference<>(0.0F);
+        Map<Float, Object3DInt> objectsByLabel =  new HashMap<>();
+        objectsByLabel.clear();
+        pop.getObjects3DInt().forEach(obj -> {
+                float label = labelObject.updateAndGet(f -> f+1);
+                obj.setLabel(label);
+                objectsByLabel.put(label, obj);
+        });
+    }
+
+    
+    /**
      * Remove object with one Z
      */
     public void zFilterPop (Objects3DIntPopulation pop) {
@@ -154,6 +177,7 @@ public class Tools {
             if (zmax - zmin <= 1)
                 pop.removeObject(obj);
         }
+        resetLabels(pop);
     }
     
     
@@ -183,6 +207,19 @@ public class Tools {
     }  
     
     
+    
+    /**
+    Fill cells parameters
+    */
+    public void pvCellsParameters (Objects3DIntPopulation cellsPop, ArrayList<Cells_PV> pvCells, ImagePlus imgPv) {
+        for (Object3DInt obj : cellsPop.getObjects3DInt()) {
+            double pvVol = new MeasureVolume(obj).getVolumeUnit();
+            double pvInt = new MeasureIntensity(obj, ImageHandler.wrap(imgPv)).getValueMeasurement(MeasureIntensity.INTENSITY_SUM);
+            Cells_PV pv = new Cells_PV(pvVol, pvInt, false, 0, 0, 0, 0, 0, 0, 0, 0);
+            pvCells.add(pv);
+        }
+        
+    }
     
     public String[] dialog(String[] chs) {
         String[] models = findStardistModels();
@@ -513,7 +550,7 @@ public class Tools {
      * pop2 PNN cells
      * @return PV cells in PNN cells
      */
-    public Objects3DIntPopulation findColocCells (Objects3DIntPopulation pop1, Objects3DIntPopulation pop2) {
+    public Objects3DIntPopulation findColocCells (Objects3DIntPopulation pop1, Objects3DIntPopulation pop2, ArrayList<Cells_PV> pvCells, ImagePlus imgPNN) {
         Objects3DIntPopulation colocPop = new Objects3DIntPopulation();
         IJ.showStatus("Finding colocalized cells population ...");
         for(Object3DInt obj2: pop2.getObjects3DInt()) {
@@ -522,8 +559,16 @@ public class Tools {
                 Point3D PtObj1 =  new MeasureCentroid(obj1).getCentroidAsPoint();
                 double dist = PtObj1.distance(PtObj2, cal.pixelWidth, cal.pixelDepth);
                 if ((dist <= minDist) ) {
-                    if (!checkObjLabel(colocPop, obj1))
+                    if (!checkObjLabel(colocPop, obj1)) {
                         colocPop.addObject(obj1);
+                        Cells_PV pvCell = pvCells.get((int)obj1.getLabel());
+                        double pnnInt = new MeasureIntensity(obj2, ImageHandler.wrap(imgPNN)).getValueMeasurement(MeasureIntensity.INTENSITY_SUM);
+                        double pnnVol = new MeasureVolume(obj2).getValueMeasurement(MeasureVolume.VOLUME_UNIT);
+                        pvCell.setcellPV_PNN(true);
+                        pvCell.setcellPNNInt(pnnInt);
+                        pvCell.setcellPNNVol(pnnVol);
+                        pvCells.set((int)obj1.getLabel(), pvCell);
+                    }
                     break;
                 }
             }
@@ -535,20 +580,98 @@ public class Tools {
     
     /**
      * Find dots in cells
+     * @param cellsPop pv cells
+     * @param dotsPop dots
+     * @param pvCells
+     * @param img
+     * @param channel GFP or DAPI
      * @return 
      */
-    public Objects3DIntPopulation findDotsinCells (Objects3DIntPopulation pop1, Objects3DIntPopulation pop2) {
+    public Objects3DIntPopulation findDotsinCells (Objects3DIntPopulation cellsPop, Objects3DIntPopulation dotsPop, ArrayList<Cells_PV> pvCells, ImagePlus img, String channel) {
         Objects3DIntPopulation colocPop = new Objects3DIntPopulation();
         IJ.showStatus("Finding dots in cells population ...");
-        MeasurePopulationColocalisation colocalisation = new MeasurePopulationColocalisation(pop1, pop2);
-        pop1.getObjects3DInt().stream().forEach(obj1 -> {
-            double[] coloc = colocalisation.getValuesObject1(obj1.getLabel());
-            for (int i = 0; i < coloc.length; i += 3) {
-                Object3DInt obj2 = pop2.getObjectByLabel((float) coloc[i+1]);
-                if (!checkObjLabel(colocPop, obj2))
-                    colocPop.addObject(obj2);
+        for (Object3DInt cellObj : cellsPop.getObjects3DInt()) {
+            int cellIndex = (int)cellObj.getLabel();
+            IJ.showStatus("Finding "+channel+" foci in PV cell "+cellIndex+"/"+cellsPop.getNbObjects());
+            Cells_PV pvCell = pvCells.get(cellIndex-1);
+            int dots = 0;
+            double dotsVol = 0;
+            double dotsInt = 0;
+            for (Object3DInt dotObj : dotsPop.getObjects3DInt()) {
+                Point3D pt = new MeasureCentroid(dotObj).getCentroidAsPoint();
+                if (cellObj.contains(new VoxelInt(pt.getRoundX(), pt.getRoundY(), pt.getRoundZ(), 0))) {
+                    dots++;
+                    dotsVol += new MeasureVolume(dotObj).getVolumeUnit();
+                    dotsInt += new MeasureIntensity(dotObj, ImageHandler.wrap(img)).getValueMeasurement(MeasureIntensity.INTENSITY_SUM);
+                    colocPop.addObject(dotObj);
+                }
             }
-        });
+            switch (channel) {
+                case "GFP":
+                    pvCell.setnbFoci(dots);
+                    pvCell.setfociVol(dotsVol);
+                    pvCell.setfociInt(dotsInt);
+                    break;
+                case "DAPI":
+                    pvCell.setnbDapiFoci(dots);
+                    pvCell.setfociDapiVol(dotsVol);
+                    pvCell.setfociDapiInt(dotsInt);
+                    break;
+                default :
+            }
+            pvCells.set(cellIndex-1, pvCell);
+        }
+        colocPop.setVoxelSizeXY(cal.pixelWidth);
+        colocPop.setVoxelSizeZ(cal.pixelDepth);
+        return(colocPop);    
+    }
+    
+    /**
+     * Find dots in cells
+     * @param pop1 pv cells
+     * @param pop2 dots
+     * @param pvCells
+     * @param img
+     * @param channel GFP or DAPI
+     * @return 
+     */
+    public Objects3DIntPopulation colocDotsCells (Objects3DIntPopulation cellsPop, Objects3DIntPopulation dotsPop, ArrayList<Cells_PV> pvCells, ImagePlus img, String channel) {
+        Objects3DIntPopulation colocPop = new Objects3DIntPopulation();
+        IJ.showStatus("Finding dots in cells population ...");
+        MeasurePopulationColocalisation coloc = new MeasurePopulationColocalisation(cellsPop, dotsPop);
+        ResultsTable table = coloc.getResultsTableOnlyColoc();
+        table.show("coloc");
+        for (Object3DInt cellObj : cellsPop.getObjects3DInt()) {
+            int cellIndex = (int)cellObj.getLabel();
+            IJ.showStatus("Finding "+channel+" foci in PV cell "+cellIndex+"/"+cellsPop.getNbObjects());
+            Cells_PV pvCell = pvCells.get(cellIndex);
+            int dots = 0;
+            double dotsVol = 0;
+            double dotsInt = 0;
+            for (Object3DInt dotObj : dotsPop.getObjects3DInt()) {
+                double colocVal = coloc.getValueObjectsPair(cellObj, dotObj);
+                if (colocVal > 0) {
+                    dots++;
+                    dotsVol += new MeasureVolume(dotObj).getVolumeUnit();
+                    dotsInt += new MeasureIntensity(dotObj, ImageHandler.wrap(img)).getValueMeasurement(MeasureIntensity.INTENSITY_SUM);
+                    colocPop.addObject(dotObj);
+                }
+            }
+            switch (channel) {
+                case "GFP":
+                    pvCell.setnbFoci(dots);
+                    pvCell.setfociVol(dotsVol);
+                    pvCell.setfociInt(dotsInt);
+                    break;
+                case "DAPI":
+                    pvCell.setnbDapiFoci(dots);
+                    pvCell.setfociDapiVol(dotsVol);
+                    pvCell.setfociDapiInt(dotsInt);
+                    break;
+                default :
+            }
+            pvCells.set(cellIndex, pvCell);
+        }
         colocPop.setVoxelSizeXY(cal.pixelWidth);
         colocPop.setVoxelSizeZ(cal.pixelDepth);
         return(colocPop);    
@@ -577,33 +700,42 @@ public class Tools {
    
     /**
      * Save dots Population in image
-     * @param pop1 PNN cells
-     * @param pop2 PV cells
-     * @param pop3 dots
-     * @param pop4 PV/PNN
+     * @param pop1 PV cells
+     * @param pop2 PNN cells
+     * @param pop3 fociGFP
+     * @param pop4 fociDAPI
+     * @param pop5 PV/PNN
      * @param imageName
      * @param img 
      * @param outDir 
      */
-    public void saveImgObjects(Objects3DIntPopulation pop1, Objects3DIntPopulation pop2, Objects3DIntPopulation pop3, Objects3DIntPopulation pop4, String imageName, ImagePlus img, String outDir) {
+    public void saveImgObjects(Objects3DIntPopulation pop1, Objects3DIntPopulation pop2, Objects3DIntPopulation pop3, Objects3DIntPopulation pop4, 
+            Objects3DIntPopulation pop5, String imageName, ImagePlus img, String outDir) {
         //create image objects population
         ImageHandler imgObj1 = ImageHandler.wrap(img).createSameDimensions();
-        pop1.drawInImage(imgObj1);
+        if (pop1.getNbObjects() > 0)
+            pop1.drawInImage(imgObj1);
         ImageHandler imgObj2 = imgObj1.createSameDimensions();
         if (pop2.getNbObjects() > 0) {
             for (Object3DInt obj2 : pop2.getObjects3DInt()) {
-                if (checkObjLabel(pop4, obj2)) {
+                if (checkObjLabel(pop5, obj2)) {
                     labelsObject(obj2, imgObj2);
                     obj2.drawObject(imgObj2);
                 }
             }
         }
         ImageHandler imgObj3 = imgObj1.createSameDimensions();
-        if (pop3.getNbObjects() > 0) {
+        if (pop3.getNbObjects() > 0)
             pop3.drawInImage(imgObj3);
-        }   
+        ImageHandler imgObj4 = imgObj1.createSameDimensions();
+        if (pop4.getNbObjects() > 0) 
+            pop4.drawInImage(imgObj4);
+        ImageHandler imgObj5 = imgObj1.createSameDimensions();
+        if (pop5.getNbObjects() > 0) 
+            pop5.drawInImage(imgObj5);
+   
         // save image for objects population
-        ImagePlus[] imgColors = {imgObj1.getImagePlus(), imgObj2.getImagePlus(), null, null, imgObj3.getImagePlus()};
+        ImagePlus[] imgColors = {imgObj1.getImagePlus(), imgObj2.getImagePlus(), imgObj4.getImagePlus(), null, imgObj3.getImagePlus(),imgObj5.getImagePlus() };
         ImagePlus imgObjects = new RGBStackMerge().mergeHyperstacks(imgColors, false);
         imgObjects.setCalibration(img.getCalibration());
         FileSaver ImgObjectsFile = new FileSaver(imgObjects);
@@ -611,6 +743,8 @@ public class Tools {
         imgObj1.closeImagePlus();
         imgObj2.closeImagePlus();
         imgObj3.closeImagePlus();
+        imgObj4.closeImagePlus();
+        imgObj5.closeImagePlus();
         flush_close(imgObjects);
     }
     
