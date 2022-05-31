@@ -693,7 +693,7 @@ public class Tools {
         imh.getImagePlus().setSlice(z+1);
         ImageProcessor ip = imh.getImagePlus().getProcessor();
         ip.setFont(tagFont);
-        ip.setColor(label);
+        ip.setColor(255);
         ip.drawString(Integer.toString((int)label), x, y);
         imh.getImagePlus().updateAndDraw();
     }
@@ -712,30 +712,43 @@ public class Tools {
     public void saveImgObjects(Objects3DIntPopulation pop1, Objects3DIntPopulation pop2, Objects3DIntPopulation pop3, Objects3DIntPopulation pop4, 
             Objects3DIntPopulation pop5, String imageName, ImagePlus img, String outDir) {
         //create image objects population
+        
+
+        //PV cells green
         ImageHandler imgObj1 = ImageHandler.wrap(img).createSameDimensions();
         if (pop1.getNbObjects() > 0)
-            pop1.drawInImage(imgObj1);
+            for (Object3DInt obj : pop1.getObjects3DInt())
+                obj.drawObject(imgObj1, 255);
+        
+        //PNN cells red
         ImageHandler imgObj2 = imgObj1.createSameDimensions();
-        if (pop2.getNbObjects() > 0) {
-            for (Object3DInt obj2 : pop2.getObjects3DInt()) {
-                if (checkObjLabel(pop5, obj2)) {
-                    labelsObject(obj2, imgObj2);
-                    obj2.drawObject(imgObj2);
-                }
-            }
-        }
+        if (pop2.getNbObjects() > 0)
+            for (Object3DInt obj : pop2.getObjects3DInt())
+                obj.drawObject(imgObj2, 255);
+        
+        // Foci GFP cyan
         ImageHandler imgObj3 = imgObj1.createSameDimensions();
         if (pop3.getNbObjects() > 0)
-            pop3.drawInImage(imgObj3);
+            for (Object3DInt obj : pop3.getObjects3DInt())
+                obj.drawObject(imgObj3, 255);        
+        
+        // Foci DAPI blue
         ImageHandler imgObj4 = imgObj1.createSameDimensions();
         if (pop4.getNbObjects() > 0) 
-            pop4.drawInImage(imgObj4);
+            for (Object3DInt obj : pop4.getObjects3DInt())
+                obj.drawObject(imgObj4, 255);
+        
+        // PV/PNN yellow
         ImageHandler imgObj5 = imgObj1.createSameDimensions();
-        if (pop5.getNbObjects() > 0) 
-            pop5.drawInImage(imgObj5);
+        if (pop5.getNbObjects() > 0) {
+            for (Object3DInt obj : pop5.getObjects3DInt()) {
+                    labelsObject(obj, imgObj5);
+                    obj.drawObject(imgObj5, 255);
+            }
+        }
    
         // save image for objects population
-        ImagePlus[] imgColors = {imgObj1.getImagePlus(), imgObj2.getImagePlus(), imgObj4.getImagePlus(), null, imgObj3.getImagePlus(),imgObj5.getImagePlus() };
+        ImagePlus[] imgColors = {imgObj2.getImagePlus(), imgObj1.getImagePlus(), imgObj4.getImagePlus(), null, imgObj3.getImagePlus(),null,imgObj5.getImagePlus() };
         ImagePlus imgObjects = new RGBStackMerge().mergeHyperstacks(imgColors, false);
         imgObjects.setCalibration(img.getCalibration());
         FileSaver ImgObjectsFile = new FileSaver(imgObjects);

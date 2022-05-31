@@ -93,14 +93,17 @@ public class GFP_PV_PNN implements PlugIn {
                 return;
             }
             // Write header
+            // Global 
             String header= "Image Name\tPNN cells\tPV cells\tPNN/PV cells\tFoci in PNN/PV\tFoci intensity\tFoci volume\tFoci Dapi in PNN/PV\t"
                     + "Foci Dapi intensity\tFoci Dapi volume\n";
-            FileWriter fwCellsGlobal = new FileWriter(outDirResults + "GFP_PV_PNN-"+tools.dotsDetection+tools+"Global_Results.xls", false);
+            FileWriter fwCellsGlobal = new FileWriter(outDirResults + "GFP_PV_PNN-"+tools.dotsDetection+"Global_Results.xls", false);
             global_results_analyze = new BufferedWriter(fwCellsGlobal);
             global_results_analyze.write(header);
             global_results_analyze.flush();
-            header= "Image Name\t# PV Cell\tPV_PNN\tPV Vol\tPV Int\tPNN Vol\tPNN Int\tnb Foci\tVol Foci\tInt Foci\tnb Foci\tVol Foci\tInt Foci\n";
-            FileWriter fwCells = new FileWriter(outDirResults + "GFP_PV_PNN-"+tools.dotsDetection+tools+"Cells_Results.xls", false);
+            
+            // Cells
+            header= "Image Name\t# PV Cell\tPV/PNN\tPV Vol\tPV Int\tPNN Vol\tPNN Int\tnb Foci GFP\tVol Foci GFP\tInt Foci GFP\tnb Foci DAPI\tVol Foci DAPI\tInt Foci DAPI\n";
+            FileWriter fwCells = new FileWriter(outDirResults + "GFP_PV_PNN-"+tools.dotsDetection+"Cells_Results.xls", false);
             cells_results_analyze = new BufferedWriter(fwCells);
             cells_results_analyze.write(header);
             cells_results_analyze.flush();
@@ -217,12 +220,15 @@ public class GFP_PV_PNN implements PlugIn {
                 int index = 0;
                 for (Cells_PV pvCell : pvCellsList) {
                     if (index == 0)
-                        cells_results_analyze.write(rootName);
+                        cells_results_analyze.write(rootName+"\t"+index+"\t"+pvCell.getcellPV_PNN()+"\t"+pvCell.getCellVol()+"\t"+pvCell.getCellInt()+"\t"+
+                                pvCell.getcellPNNVol()+"\t"+pvCell.getcellPNNInt()+"\t"+pvCell.getnbFoci()+"\t"+pvCell.getfociInt()+"\t"+pvCell.getfociVol()+"\t"+
+                                pvCell.getnbDapiFoci()+"\t"+pvCell.getfociDapiInt()+"\t"+pvCell.getfociDapiVol()+"\n");
                     else
-                       cells_results_analyze.write("\t"+index+"\t"+pvCell.getCellVol()+"\t"+pvCell.getCellInt()+"\t"+pvCell.getcellPV_PNN()+"\t"+pvCell.getcellPNNVol()+
-                               "\t"+pvCell.getcellPNNVol()+"\t"+pvCell.getnbFoci()+"\t"+pvCell.getfociInt()+"\t"+pvCell.getfociVol()+"\t"+pvCell.getnbDapiFoci()+
-                               "\t"+pvCell.getfociDapiInt()+"\t"+pvCell.getfociDapiVol()+"\n");
-                cells_results_analyze.flush();
+                        cells_results_analyze.write("\t"+index+"\t"+pvCell.getcellPV_PNN()+"\t"+pvCell.getCellVol()+"\t"+pvCell.getCellInt()+"\t"+
+                                pvCell.getcellPNNVol()+"\t"+pvCell.getcellPNNInt()+"\t"+pvCell.getnbFoci()+"\t"+pvCell.getfociInt()+"\t"+pvCell.getfociVol()+"\t"+
+                                pvCell.getnbDapiFoci()+"\t"+pvCell.getfociDapiInt()+"\t"+pvCell.getfociDapiVol()+"\n");
+                    index++;
+                    cells_results_analyze.flush();
                 }
                 
             }
