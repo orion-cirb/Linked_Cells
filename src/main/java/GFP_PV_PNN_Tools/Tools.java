@@ -73,8 +73,10 @@ public class Tools {
     public boolean canceled = false;
     public double minCellVol = 300;
     public double maxCellVol = 1500;
-    public double minDotVol = 0.2;
-    public double maxDotVol = 20;
+    public double minFociGfpVol = 0.2;
+    public double maxFociGfpVol = 20;
+    public double minFociDapiVol = 0.2;
+    public double maxFociDapiVol = 20;
     
     private double minDist = 20;
     
@@ -246,7 +248,13 @@ public class Tools {
         gd.addChoice("Method : "+" : ", dotsDetections, dotsDetections[0]);
         gd.addNumericField("min DOG : ", minDotDOG);
         gd.addNumericField("max DOG : ", maxDotDOG);
-        gd.addNumericField("min distance PNN PV Cells : ", minDist);
+        gd.addMessage("Foci size filter", Font.getFont("Monospace"), Color.blue);
+        gd.addNumericField("min foci GFP : ", minFociGfpVol);
+        gd.addNumericField("max foci GFP : ", maxFociGfpVol);
+        gd.addNumericField("min foci DAPI : ", minFociDapiVol);
+        gd.addNumericField("max foci DAPI : ", maxFociDapiVol);
+         gd.addNumericField("min distance PNN PV Cells : ", minDist);
+        gd.addMessage("Image calibration", Font.getFont("Monospace"), Color.blue);
         gd.addNumericField("Pixel size : ", cal.pixelWidth);
         gd.showDialog();
         if (gd.wasCanceled())
@@ -269,6 +277,10 @@ public class Tools {
         dotsDetection = gd.getNextChoice();
         minDotDOG = gd.getNextNumber();
         maxDotDOG = gd.getNextNumber();
+        minFociGfpVol = gd.getNextNumber();
+        maxFociGfpVol = gd.getNextNumber();
+        minFociDapiVol = gd.getNextNumber();
+        maxFociDapiVol = gd.getNextNumber();
         minDist = gd.getNextNumber();
         cal.pixelWidth = cal.pixelHeight = gd.getNextNumber();
         return(chChoices);
@@ -486,14 +498,17 @@ public class Tools {
      * @param thPop
      * @return 
      */
-     public Objects3DIntPopulation findDots(ImagePlus imgTh) {
+     public Objects3DIntPopulation findDots(ImagePlus imgTh, String channel) {
         IJ.showStatus("Finding dots ....");
         ClearCLBuffer imgCL = clij2.push(imgTh);
         ClearCLBuffer imgDOG = DOG(imgCL, minDotDOG, maxDotDOG);
         clij2.release(imgCL);
         ClearCLBuffer imgCLBin = threshold(imgDOG, "Moments");
         clij2.release(imgDOG);
-        Objects3DIntPopulation dotsPop = getPopFromClearBuffer(imgCLBin, minDotVol, maxDotVol);
+        if (channel.equals("gfp"))
+            Objects3DIntPopulation dotsPop = getPopFromClearBuffer(imgCLBin, minFociGfpVol, maxFociGfpVol);
+        else
+            Objects3DIntPopulation dotsPop = getPopFromClearBuffer(imgCLBin, minFociDapiVol, maxFociDapiVol);
         clij2.release(imgCLBin);
         dotsPop.setVoxelSizeXY(cal.pixelWidth);
         dotsPop.setVoxelSizeZ(cal.pixelDepth);

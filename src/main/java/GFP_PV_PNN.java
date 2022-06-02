@@ -162,7 +162,7 @@ public class GFP_PV_PNN implements PlugIn {
                 if (tools.dotsDetection.equals("stardist"))
                     fociGfpPop = tools.stardistNucleiPop(imgGfpFoci, false, tools.stardistDotModel, tools.minDotVol, tools.maxDotVol);
                 else
-                    fociGfpPop = tools.findDots(imgGfpFoci);
+                    fociGfpPop = tools.findDots(imgGfpFoci, "gfp");
                 System.out.println(fociGfpPop.getNbObjects()+" total foci GFP found");
                 
                 // Finding foci GFP in PV cells
@@ -188,7 +188,7 @@ public class GFP_PV_PNN implements PlugIn {
                 if (tools.dotsDetection.equals("stardist"))
                     fociDapiPop = tools.stardistNucleiPop(imgDapiFoci, false, tools.stardistDotModel, tools.minDotVol, tools.maxDotVol);
                 else
-                    fociDapiPop = tools.findDots(imgDapiFoci);
+                    fociDapiPop = tools.findDots(imgDapiFoci, "dapi");
                 System.out.println(fociDapiPop.getNbObjects()+" total foci DAPI found");
                 
                 
@@ -221,12 +221,12 @@ public class GFP_PV_PNN implements PlugIn {
                 for (Cells_PV pvCell : pvCellsList) {
                     if (index == 0)
                         cells_results_analyze.write(rootName+"\t"+index+"\t"+pvCell.getcellPV_PNN()+"\t"+pvCell.getCellVol()+"\t"+pvCell.getCellInt()+"\t"+
-                                pvCell.getcellPNNVol()+"\t"+pvCell.getcellPNNInt()+"\t"+pvCell.getnbFoci()+"\t"+pvCell.getfociInt()+"\t"+pvCell.getfociVol()+"\t"+
-                                pvCell.getnbDapiFoci()+"\t"+pvCell.getfociDapiInt()+"\t"+pvCell.getfociDapiVol()+"\n");
+                                pvCell.getcellPNNVol()+"\t"+pvCell.getcellPNNInt()+"\t"+pvCell.getnbFoci()+"\t"+pvCell.getfociVol()+"\t"+pvCell.getfociInt()+"\t"+
+                                pvCell.getnbDapiFoci()+"\t"+pvCell.getfociDapiVol()+"\t"+pvCell.getfociDapiInt()+"\n");
                     else
                         cells_results_analyze.write("\t"+index+"\t"+pvCell.getcellPV_PNN()+"\t"+pvCell.getCellVol()+"\t"+pvCell.getCellInt()+"\t"+
-                                pvCell.getcellPNNVol()+"\t"+pvCell.getcellPNNInt()+"\t"+pvCell.getnbFoci()+"\t"+pvCell.getfociInt()+"\t"+pvCell.getfociVol()+"\t"+
-                                pvCell.getnbDapiFoci()+"\t"+pvCell.getfociDapiInt()+"\t"+pvCell.getfociDapiVol()+"\n");
+                                pvCell.getcellPNNVol()+"\t"+pvCell.getcellPNNInt()+"\t"+pvCell.getnbFoci()+"\t"+pvCell.getfociVol()+"\t"+pvCell.getfociInt()+"\t"+
+                                pvCell.getnbDapiFoci()+"\t"+pvCell.getfociDapiVol()+"\t"+pvCell.getfociDapiInt()+"\n");
                     index++;
                     cells_results_analyze.flush();
                 }
