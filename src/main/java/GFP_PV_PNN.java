@@ -160,7 +160,7 @@ public class GFP_PV_PNN implements PlugIn {
                 ImagePlus imgGfpFoci = BF.openImagePlus(options)[indexCh];
                 Objects3DIntPopulation fociGfpPop = new Objects3DIntPopulation();
                 if (tools.dotsDetection.equals("stardist"))
-                    fociGfpPop = tools.stardistNucleiPop(imgGfpFoci, false, tools.stardistDotModel, tools.minDotVol, tools.maxDotVol);
+                    fociGfpPop = tools.stardistNucleiPop(imgGfpFoci, false, tools.stardistDotModel, tools.minFociGfpVol, tools.maxFociGfpVol);
                 else
                     fociGfpPop = tools.findDots(imgGfpFoci, "gfp");
                 System.out.println(fociGfpPop.getNbObjects()+" total foci GFP found");
@@ -186,7 +186,7 @@ public class GFP_PV_PNN implements PlugIn {
                 ImagePlus imgDapiFoci = BF.openImagePlus(options)[indexCh];
                 Objects3DIntPopulation fociDapiPop = new Objects3DIntPopulation();
                 if (tools.dotsDetection.equals("stardist"))
-                    fociDapiPop = tools.stardistNucleiPop(imgDapiFoci, false, tools.stardistDotModel, tools.minDotVol, tools.maxDotVol);
+                    fociDapiPop = tools.stardistNucleiPop(imgDapiFoci, false, tools.stardistDotModel, tools.minFociDapiVol, tools.maxFociDapiVol);
                 else
                     fociDapiPop = tools.findDots(imgDapiFoci, "dapi");
                 System.out.println(fociDapiPop.getNbObjects()+" total foci DAPI found");

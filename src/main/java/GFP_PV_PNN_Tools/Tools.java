@@ -505,10 +505,11 @@ public class Tools {
         clij2.release(imgCL);
         ClearCLBuffer imgCLBin = threshold(imgDOG, "Moments");
         clij2.release(imgDOG);
+        Objects3DIntPopulation dotsPop = new Objects3DIntPopulation();
         if (channel.equals("gfp"))
-            Objects3DIntPopulation dotsPop = getPopFromClearBuffer(imgCLBin, minFociGfpVol, maxFociGfpVol);
+            dotsPop = getPopFromClearBuffer(imgCLBin, minFociGfpVol, maxFociGfpVol);
         else
-            Objects3DIntPopulation dotsPop = getPopFromClearBuffer(imgCLBin, minFociDapiVol, maxFociDapiVol);
+            dotsPop = getPopFromClearBuffer(imgCLBin, minFociDapiVol, maxFociDapiVol);
         clij2.release(imgCLBin);
         dotsPop.setVoxelSizeXY(cal.pixelWidth);
         dotsPop.setVoxelSizeZ(cal.pixelDepth);
