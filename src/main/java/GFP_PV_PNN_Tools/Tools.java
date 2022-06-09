@@ -6,6 +6,7 @@ import fiji.util.gui.GenericDialogPlus;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
+import ij.gui.Roi;
 import ij.gui.WaitForUserDialog;
 import ij.io.FileSaver;
 import ij.measure.Calibration;
@@ -52,6 +53,7 @@ import mcib3d.image3d.ImageHandler;
 import net.haesleinhuepf.clij.clearcl.ClearCLBuffer;
 import net.haesleinhuepf.clij2.CLIJ2;
 import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.io.IOUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -97,7 +99,7 @@ public class Tools {
     double minDotDOG = 1;
     double maxDotDOG = 2;
     
-    public String[] channelNames = {"PV", "WFA", "GFP", "DAPI"};
+    public String[] channelNames = {"PV", "PNN", "GFP", "DAPI"};
     public Calibration cal;
     
     private final ImageIcon icon = new ImageIcon(this.getClass().getResource("/Orion_icon.png"));
@@ -158,30 +160,27 @@ public class Tools {
      * Reset labels of the objects
      */
     public void resetLabels(Objects3DIntPopulation pop){
-        AtomicReference<Float> labelObject = new AtomicReference<>(0.0F);
-        Map<Float, Object3DInt> objectsByLabel =  new HashMap<>();
-        objectsByLabel.clear();
-        pop.getObjects3DInt().forEach(obj -> {
-                float label = labelObject.updateAndGet(f -> f+1);
-                obj.setLabel(label);
-                objectsByLabel.put(label, obj);
-        });
+        float label = 0;
+        for(Object3DInt obj: pop.getObjects3DInt()) {
+            obj.setLabel(label);
+            label++;
+        }
     }
 
-    
     /**
      * Remove object with one Z
      */
-    public void zFilterPop (Objects3DIntPopulation pop) {
+    public Objects3DIntPopulation zFilterPop (Objects3DIntPopulation pop) {
+        Objects3DIntPopulation popZ = new Objects3DIntPopulation();
         for (Object3DInt obj : pop.getObjects3DInt()) {
             int zmin = obj.getBoundingBox().zmin;
             int zmax = obj.getBoundingBox().zmax;
-            if (zmax - zmin <= 1)
-                pop.removeObject(obj);
+            if (zmax != zmin)
+                popZ.addObject(obj);
         }
-        resetLabels(pop);
+        resetLabels(popZ);
+        return popZ;
     }
-    
     
      /**
      * return objects population in an ClearBuffer image
@@ -338,9 +337,6 @@ public class Tools {
                 case "isc2" :
                     ext = fileExt;
                     break;
-                default :
-                   ext = fileExt;
-                   break; 
             }
         }
         return(ext);
@@ -421,7 +417,7 @@ public class Tools {
     Do z slice by slice stardist 
     * return nuclei population
     */
-   public Objects3DIntPopulation stardistNucleiPop(ImagePlus imgNuc, boolean removeOut, String stardistModel, double minVol, double maxVol) throws IOException{
+   public Objects3DIntPopulation stardistNucleiPop(ImagePlus imgNuc, String stardistModel, double minVol, double maxVol) throws IOException{
        ImagePlus img = null;
        // resize to be in a stardist-friendly scale
        int width = imgNuc.getWidth();
@@ -435,14 +431,10 @@ public class Tools {
        else
            img = new Duplicator().run(imgNuc);
        
-       if (removeOut)
-           IJ.run(img, "Remove Outliers", "block_radius_x=10 block_radius_y=10 standard_deviations=1 stack");
+       IJ.run(img, "Remove Outliers", "block_radius_x=10 block_radius_y=10 standard_deviations=1 stack");
        ClearCLBuffer imgCL = clij2.push(img);
        ClearCLBuffer imgCLM = clij2.create(imgCL);
-       if (removeOut)
-           imgCLM = median_filter(imgCL, 2, 2);
-       else
-           imgCLM = DOG(imgCL, 1, 2);
+       imgCLM = median_filter(imgCL, 2, 2);
        clij2.release(imgCL);
        ImagePlus imgM = clij2.pull(imgCLM);
        clij2.release(imgCLM);
@@ -460,10 +452,60 @@ public class Tools {
        imgCL = clij2.push(nuclei);
        Objects3DIntPopulation nPop = getPopFromClearBuffer(imgCL, minVol, maxVol); 
        clij2.release(imgCL);
-       zFilterPop(nPop);  
+       Objects3DIntPopulation popZ = zFilterPop(nPop);  
        flush_close(nuclei);
-       return(nPop);
+       return(popZ);
    }
+   
+    /** Look for all nuclei in given population of cells
+    Do z slice by slice stardist 
+    * return nuclei population
+    */
+    public Objects3DIntPopulation stardistDotsPopInCells(ImagePlus imgNuc, String stardistModel, double minVol, double maxVol, Objects3DIntPopulation cellPop) throws IOException{
+        File starDistModelFile = new File(stardistModel);
+        StarDist2D star = new StarDist2D(syncObject, starDistModelFile);
+        star.setParams(stardistPercentileBottom, stardistPercentileTop, stardistProbThreshNuc, stardistOverlayThreshNuc, stardistOutput);
+            
+        // Go StarDist
+        Objects3DIntPopulation dotsPop = new Objects3DIntPopulation();
+        float dotLabel = 0;
+        for (Object3DInt cell: cellPop.getObjects3DInt()) {
+            BoundingBox box = cell.getBoundingBox();
+            Roi roi = new Roi(box.xmin, box.ymin, box.xmax-box.xmin, box.ymax-box.ymin);
+            imgNuc.setRoi(roi);
+            ImagePlus imgCrop = new Duplicator().run(imgNuc, box.zmin+1, box.zmax+1);
+            
+            ClearCLBuffer imgCL = clij2.push(imgCrop);
+            flush_close(imgCrop);
+            ClearCLBuffer imgCLM = clij2.create(imgCL);
+            imgCLM = median_filter(imgCL, 4, 4);
+            clij2.release(imgCL);
+            ImagePlus imgM = clij2.pull(imgCLM);
+            clij2.release(imgCLM);
+        
+            star.loadInput(imgM);
+            star.run();
+            flush_close(imgM);
+            
+            // label in 3D
+            ImagePlus nuclei = star.getLabelImagePlus();
+            imgCL = clij2.push(nuclei);
+            flush_close(nuclei);
+            Objects3DIntPopulation pop = getPopFromClearBuffer(imgCL, minVol, maxVol); 
+            clij2.release(imgCL);
+            for(Object3DInt dot: pop.getObjects3DInt()) {
+                dot.setLabel(dotLabel);
+                int tx = box.xmin;
+                int ty = box.ymin;
+                int tz = box.zmin;
+                dot.translate(tx, ty, tz);
+                dotsPop.addObject(dot);
+                dotLabel++;
+            } 
+        }
+        return(dotsPop);
+    }
+   
    
    /**
      * Threshold 
@@ -490,7 +532,7 @@ public class Tools {
         ClearCLBuffer imgCLDOG = clij2.create(imgCL);
         clij2.differenceOfGaussian3D(imgCL, imgCLDOG, size1, size1, size1, size2, size2, size2);
         return(imgCLDOG);
-    }
+    } 
         
  /**
      * Find dots population
@@ -498,19 +540,40 @@ public class Tools {
      * @param thPop
      * @return 
      */
-     public Objects3DIntPopulation findDots(ImagePlus imgTh, String channel) {
+     public Objects3DIntPopulation findDots(ImagePlus imgTh, String channel, Objects3DIntPopulation cellPop) {
         IJ.showStatus("Finding dots ....");
-        ClearCLBuffer imgCL = clij2.push(imgTh);
-        ClearCLBuffer imgDOG = DOG(imgCL, minDotDOG, maxDotDOG);
-        clij2.release(imgCL);
-        ClearCLBuffer imgCLBin = threshold(imgDOG, "Moments");
-        clij2.release(imgDOG);
         Objects3DIntPopulation dotsPop = new Objects3DIntPopulation();
-        if (channel.equals("gfp"))
-            dotsPop = getPopFromClearBuffer(imgCLBin, minFociGfpVol, maxFociGfpVol);
-        else
-            dotsPop = getPopFromClearBuffer(imgCLBin, minFociDapiVol, maxFociDapiVol);
-        clij2.release(imgCLBin);
+        
+        float dotLabel = 0;
+        for (Object3DInt cell: cellPop.getObjects3DInt()) {
+            BoundingBox box = cell.getBoundingBox();
+            Roi roi = new Roi(box.xmin, box.ymin, box.xmax-box.xmin, box.ymax-box.ymin);
+            imgTh.setRoi(roi);
+            ImagePlus img = new Duplicator().run(imgTh, box.zmin+1, box.zmax+1);
+            ClearCLBuffer imgCL = clij2.push(img);
+            flush_close(img);
+            ClearCLBuffer imgDOG = DOG(imgCL, minDotDOG, maxDotDOG);
+            clij2.release(imgCL);
+            ClearCLBuffer imgCLBin = threshold(imgDOG, "Moments");
+            clij2.release(imgDOG);
+
+            Objects3DIntPopulation pop = new Objects3DIntPopulation();
+            if (channel.equals("gfp"))
+                pop = getPopFromClearBuffer(imgCLBin, minFociGfpVol, maxFociGfpVol);
+            else
+                pop = getPopFromClearBuffer(imgCLBin, minFociDapiVol, maxFociDapiVol);
+            clij2.release(imgCLBin);
+            for(Object3DInt dot: pop.getObjects3DInt()) {
+                dot.setLabel(dotLabel);
+                int tx = box.xmin;
+                int ty = box.ymin;
+                int tz = box.zmin;
+                dot.translate(tx, ty, tz);
+                dotsPop.addObject(dot);
+                dotLabel++;
+            }
+        }
+        
         dotsPop.setVoxelSizeXY(cal.pixelWidth);
         dotsPop.setVoxelSizeZ(cal.pixelDepth);
         return(dotsPop);
@@ -609,7 +672,7 @@ public class Tools {
         for (Object3DInt cellObj : cellsPop.getObjects3DInt()) {
             int cellIndex = (int)cellObj.getLabel();
             IJ.showStatus("Finding "+channel+" foci in PV cell "+cellIndex+"/"+cellsPop.getNbObjects());
-            Cells_PV pvCell = pvCells.get(cellIndex-1);
+            Cells_PV pvCell = pvCells.get(cellIndex);
             int dots = 0;
             double dotsVol = 0;
             double dotsInt = 0;
@@ -635,7 +698,7 @@ public class Tools {
                     break;
                 default :
             }
-            pvCells.set(cellIndex-1, pvCell);
+            pvCells.set(cellIndex, pvCell);
         }
         colocPop.setVoxelSizeXY(cal.pixelWidth);
         colocPop.setVoxelSizeZ(cal.pixelDepth);

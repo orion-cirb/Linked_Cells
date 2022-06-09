@@ -129,7 +129,7 @@ public class GFP_PV_PNN implements PlugIn {
                 int indexCh = ArrayUtils.indexOf(chsName,channels[0]);
                 ImagePlus imgPV = BF.openImagePlus(options)[indexCh];
                 // Find PV cells with stardist
-                Objects3DIntPopulation pvPop = tools.stardistNucleiPop(imgPV, true, tools.stardistCellModel, tools.minCellVol, tools.maxCellVol);
+                Objects3DIntPopulation pvPop = tools.stardistNucleiPop(imgPV, tools.stardistCellModel, tools.minCellVol, tools.maxCellVol);
                 int pvCells = pvPop.getNbObjects();
                 System.out.println(pvCells +" PV cells found");
                 
@@ -160,9 +160,9 @@ public class GFP_PV_PNN implements PlugIn {
                 ImagePlus imgGfpFoci = BF.openImagePlus(options)[indexCh];
                 Objects3DIntPopulation fociGfpPop = new Objects3DIntPopulation();
                 if (tools.dotsDetection.equals("stardist"))
-                    fociGfpPop = tools.stardistNucleiPop(imgGfpFoci, false, tools.stardistDotModel, tools.minFociGfpVol, tools.maxFociGfpVol);
+                    fociGfpPop = tools.stardistDotsPopInCells(imgGfpFoci, tools.stardistDotModel, tools.minFociGfpVol, tools.maxFociGfpVol, pvPop);
                 else
-                    fociGfpPop = tools.findDots(imgGfpFoci, "gfp");
+                    fociGfpPop = tools.findDots(imgGfpFoci, "gfp", pvPop);
                 System.out.println(fociGfpPop.getNbObjects()+" total foci GFP found");
                 
                 // Finding foci GFP in PV cells
@@ -186,9 +186,9 @@ public class GFP_PV_PNN implements PlugIn {
                 ImagePlus imgDapiFoci = BF.openImagePlus(options)[indexCh];
                 Objects3DIntPopulation fociDapiPop = new Objects3DIntPopulation();
                 if (tools.dotsDetection.equals("stardist"))
-                    fociDapiPop = tools.stardistNucleiPop(imgDapiFoci, false, tools.stardistDotModel, tools.minFociDapiVol, tools.maxFociDapiVol);
+                    fociDapiPop = tools.stardistDotsPopInCells(imgDapiFoci, tools.stardistDotModel, tools.minFociDapiVol, tools.maxFociDapiVol, pvPop);
                 else
-                    fociDapiPop = tools.findDots(imgDapiFoci, "dapi");
+                    fociDapiPop = tools.findDots(imgDapiFoci, "dapi", pvPop);
                 System.out.println(fociDapiPop.getNbObjects()+" total foci DAPI found");
                 
                 
