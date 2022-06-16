@@ -14,6 +14,7 @@ import mcib3d.geom.Voxel3D;
 public class Cells_PV {
     private double cellVol;
     private double cellInt;
+    private double cellGFPInt;
     private boolean cellPV_PNN;
     private double cellPNNInt;
     private double cellPNNVol;
@@ -26,10 +27,11 @@ public class Cells_PV {
     
    
 	
-	public Cells_PV(double cellVol, double cellInt, boolean cellPV_PNN, double cellPNNInt, double cellPNNVol, int nbFoci, double fociVol, double fociInt,
+	public Cells_PV(double cellVol, double cellInt, double cellGFPInt, boolean cellPV_PNN, double cellPNNInt, double cellPNNVol, int nbFoci, double fociVol, double fociInt,
             int nbDapiFoci, double fociDapiVol, double fociDapiInt) {
             this.cellVol = cellVol;
             this.cellInt = cellInt;
+            this.cellGFPInt = cellGFPInt;
             this.cellPV_PNN = cellPV_PNN;
             this.cellPNNInt = cellPNNInt;
             this.cellPNNVol = cellPNNVol;
@@ -47,6 +49,10 @@ public class Cells_PV {
         
         public void setCellInt(double cellInt) {
             this.cellInt = cellInt;
+	}
+        
+        public void setCellGFPInt(double cellGFPInt) {
+            this.cellGFPInt = cellGFPInt;
 	}
         
         public void setcellPV_PNN(boolean cellPV_PNN) {
@@ -91,6 +97,10 @@ public class Cells_PV {
         
         public double getCellInt() {
             return(cellInt);
+	}
+        
+        public double getCellGFPInt() {
+            return(cellGFPInt);
 	}
         
         public boolean getcellPV_PNN() {

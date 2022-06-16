@@ -102,7 +102,7 @@ public class GFP_PV_PNN implements PlugIn {
             global_results_analyze.flush();
             
             // Cells
-            header= "Image Name\t# PV Cell\tPV/PNN\tPV Vol\tPV Int\tPNN Vol\tPNN Int\tnb Foci GFP\tVol Foci GFP\tInt Foci GFP\tnb Foci DAPI\tVol Foci DAPI\tInt Foci DAPI\n";
+            header= "Image Name\t# PV Cell\tPV/PNN\tPV Vol\tPV Int\tPV Int in GFP\tPNN Vol\tPNN Int\tnb Foci GFP\tVol Foci GFP\tInt Foci GFP\tnb Foci DAPI\tVol Foci DAPI\tInt Foci DAPI\n";
             FileWriter fwCells = new FileWriter(outDirResults + "GFP_PV_PNN-"+tools.dotsDetection+"Cells_Results.xls", false);
             cells_results_analyze = new BufferedWriter(fwCells);
             cells_results_analyze.write(header);
@@ -122,7 +122,10 @@ public class GFP_PV_PNN implements PlugIn {
                 options.setSplitChannels(true);
                 options.setQuiet(true);
                 options.setColorMode(ImporterOptions.COLOR_MODE_GRAYSCALE);
-                
+                if (reader.getSizeZ() - 2*tools.zSlicesToIgnore > 2) {
+                    options.setZBegin(0, tools.zSlicesToIgnore);
+                    options.setZEnd(0, reader.getSizeZ()-tools.zSlicesToIgnore-1);
+                }
                 
                 // open PV Channel
                 System.out.println("--- Opening PV channel  ...");
@@ -132,10 +135,6 @@ public class GFP_PV_PNN implements PlugIn {
                 Objects3DIntPopulation pvPop = tools.stardistNucleiPop(imgPV, tools.stardistCellModel, tools.minCellVol, tools.maxCellVol);
                 int pvCells = pvPop.getNbObjects();
                 System.out.println(pvCells +" PV cells found");
-                
-                // write cells parameters
-                ArrayList<Cells_PV> pvCellsList = new ArrayList();
-                tools.pvCellsParameters (pvPop, pvCellsList, imgPV);
                 
                 // open PNN Channel
                 // Find points in xml file
@@ -148,12 +147,6 @@ public class GFP_PV_PNN implements PlugIn {
                 int pnnCells = pnnPop.getNbObjects();
                 System.out.println(pnnCells +" PNN cells found");
                 
-                // Find PV coloc with PNN cells
-                Objects3DIntPopulation pv_pnnCellsPop = tools.findColocCells(pvPop, pnnPop, pvCellsList, imgPNN);
-                int pv_pnnCells = pv_pnnCellsPop.getNbObjects();
-                System.out.println(pv_pnnCells +" PV colocalized with PNN cells");
-                tools.flush_close(imgPNN);
-                
                 // Finding dots in Foci GFP channel
                 System.out.println("--- Opening GFP channel  ...");
                 indexCh = ArrayUtils.indexOf(chsName,channels[2]);
@@ -164,6 +157,16 @@ public class GFP_PV_PNN implements PlugIn {
                 else
                     fociGfpPop = tools.findDots(imgGfpFoci, "gfp", pvPop);
                 System.out.println(fociGfpPop.getNbObjects()+" total foci GFP found");
+                
+                // write cells parameters
+                ArrayList<Cells_PV> pvCellsList = new ArrayList();
+                tools.pvCellsParameters (pvPop, pvCellsList, imgPV, imgGfpFoci);
+                
+                // Find PV coloc with PNN cells
+                Objects3DIntPopulation pv_pnnCellsPop = tools.findColocCells(pvPop, pnnPop, pvCellsList, imgPNN);
+                int pv_pnnCells = pv_pnnCellsPop.getNbObjects();
+                System.out.println(pv_pnnCells +" PV colocalized with PNN cells");
+                tools.flush_close(imgPNN);
                 
                 // Finding foci GFP in PV cells
                 Objects3DIntPopulation pvFociGfpPop = new Objects3DIntPopulation();
@@ -204,7 +207,7 @@ public class GFP_PV_PNN implements PlugIn {
                     pvFociDapiInt = tools.findPopIntensity(pvFociDapiPop, imgDapiFoci);
                     pvFociDapiVol = tools.findPopVolume(pvFociDapiPop);
                 }
-                System.out.println(pvFociGfp +" foci DAPI in PV cells found");
+                System.out.println(pvFociDapi +" foci DAPI in PV cells found");
                 tools.flush_close(imgDapiFoci);
                 
                 // Save image objects
@@ -220,11 +223,11 @@ public class GFP_PV_PNN implements PlugIn {
                 int index = 0;
                 for (Cells_PV pvCell : pvCellsList) {
                     if (index == 0)
-                        cells_results_analyze.write(rootName+"\t"+index+"\t"+pvCell.getcellPV_PNN()+"\t"+pvCell.getCellVol()+"\t"+pvCell.getCellInt()+"\t"+
+                        cells_results_analyze.write(rootName+"\t"+index+"\t"+pvCell.getcellPV_PNN()+"\t"+pvCell.getCellVol()+"\t"+pvCell.getCellInt()+"\t"+pvCell.getCellGFPInt()+"\t"+
                                 pvCell.getcellPNNVol()+"\t"+pvCell.getcellPNNInt()+"\t"+pvCell.getnbFoci()+"\t"+pvCell.getfociVol()+"\t"+pvCell.getfociInt()+"\t"+
                                 pvCell.getnbDapiFoci()+"\t"+pvCell.getfociDapiVol()+"\t"+pvCell.getfociDapiInt()+"\n");
                     else
-                        cells_results_analyze.write("\t"+index+"\t"+pvCell.getcellPV_PNN()+"\t"+pvCell.getCellVol()+"\t"+pvCell.getCellInt()+"\t"+
+                        cells_results_analyze.write("\t"+index+"\t"+pvCell.getcellPV_PNN()+"\t"+pvCell.getCellVol()+"\t"+pvCell.getCellInt()+"\t"+pvCell.getCellGFPInt()+"\t"+
                                 pvCell.getcellPNNVol()+"\t"+pvCell.getcellPNNInt()+"\t"+pvCell.getnbFoci()+"\t"+pvCell.getfociVol()+"\t"+pvCell.getfociInt()+"\t"+
                                 pvCell.getnbDapiFoci()+"\t"+pvCell.getfociDapiVol()+"\t"+pvCell.getfociDapiInt()+"\n");
                     index++;

@@ -102,6 +102,8 @@ public class Tools {
     public String[] channelNames = {"PV", "PNN", "GFP", "DAPI"};
     public Calibration cal;
     
+    public int zSlicesToIgnore = 2;
+    
     private final ImageIcon icon = new ImageIcon(this.getClass().getResource("/Orion_icon.png"));
 
     private CLIJ2 clij2 = CLIJ2.getInstance();
@@ -212,11 +214,12 @@ public class Tools {
     /**
     Fill cells parameters
     */
-    public void pvCellsParameters (Objects3DIntPopulation cellsPop, ArrayList<Cells_PV> pvCells, ImagePlus imgPv) {
+    public void pvCellsParameters (Objects3DIntPopulation cellsPop, ArrayList<Cells_PV> pvCells, ImagePlus imgPv, ImagePlus imgGFP) {
         for (Object3DInt obj : cellsPop.getObjects3DInt()) {
             double pvVol = new MeasureVolume(obj).getVolumeUnit();
             double pvInt = new MeasureIntensity(obj, ImageHandler.wrap(imgPv)).getValueMeasurement(MeasureIntensity.INTENSITY_SUM);
-            Cells_PV pv = new Cells_PV(pvVol, pvInt, false, 0, 0, 0, 0, 0, 0, 0, 0);
+            double pvGFPInt = new MeasureIntensity(obj, ImageHandler.wrap(imgGFP)).getValueMeasurement(MeasureIntensity.INTENSITY_SUM);
+            Cells_PV pv = new Cells_PV(pvVol, pvInt, pvGFPInt, false, 0, 0, 0, 0, 0, 0, 0, 0);
             pvCells.add(pv);
         }
         
@@ -233,6 +236,8 @@ public class Tools {
             gd.addChoice(chNames+" : ", chs, chs[index]);
             index++;
         }
+        gd.addMessage("Stack", Font.getFont(Font.MONOSPACED), Color.blue);
+        gd.addNumericField("nb Z slices to ignore : ", zSlicesToIgnore);
         gd.addMessage("--- Stardist model ---", Font.getFont(Font.MONOSPACED), Color.blue);
         if (models.length > 0) {
             gd.addChoice("StarDist cell model :",models, models[0]);
@@ -243,6 +248,9 @@ public class Tools {
             gd.addFileField("StarDist cell model :", stardistCellModel);
             gd.addFileField("StarDist dots model :", stardistDotModel);
         }
+        gd.addMessage("Cells detection", Font.getFont("Monospace"), Color.blue);
+        gd.addNumericField("min cell volume : ", minCellVol);
+        gd.addNumericField("max cell volume : ", maxCellVol);
         gd.addMessage("Dots detection", Font.getFont("Monospace"), Color.blue);
         gd.addChoice("Method : "+" : ", dotsDetections, dotsDetections[0]);
         gd.addNumericField("min DOG : ", minDotDOG);
@@ -261,6 +269,7 @@ public class Tools {
         String[] chChoices = new String[channelNames.length];
         for (int n = 0; n < chChoices.length; n++) 
             chChoices[n] = gd.getNextChoice();
+        zSlicesToIgnore = (int) gd.getNextNumber();
         if (models.length > 0) {
             stardistCellModel = modelsPath+File.separator+gd.getNextChoice();
             stardistDotModel = modelsPath+File.separator+gd.getNextChoice();
@@ -273,6 +282,8 @@ public class Tools {
             IJ.error("No model specify !!");
             return(null);
         }
+        minCellVol = gd.getNextNumber();
+        maxCellVol = gd.getNextNumber();
         dotsDetection = gd.getNextChoice();
         minDotDOG = gd.getNextNumber();
         maxDotDOG = gd.getNextNumber();
@@ -919,7 +930,7 @@ public class Tools {
                 Element eElement = (Element) nNode;
                 x = Integer.parseInt(eElement.getElementsByTagName("MarkerX").item(0).getTextContent());
                 y = Integer.parseInt(eElement.getElementsByTagName("MarkerY").item(0).getTextContent());
-                z = Integer.parseInt(eElement.getElementsByTagName("MarkerZ").item(0).getTextContent());
+                z = Integer.parseInt(eElement.getElementsByTagName("MarkerZ").item(0).getTextContent())-zSlicesToIgnore;
             }
             Point3DInt pt = new Point3DInt(x, y, z);
             ptList.add(pt);
