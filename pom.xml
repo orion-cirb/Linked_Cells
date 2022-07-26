@@ -7,12 +7,12 @@
 
         
 	<groupId>cirb</groupId>
-	<artifactId>GFP_PV_PNN</artifactId>
+	<artifactId>PML_FixedCells</artifactId>
 	<version>1.0.0</version>
         <packaging>jar</packaging>
-	<name>GFP_PV_PNN</name>
+	<name>PML_FixedCells</name>
 	<description>
-            find Th in ucleus and in processses,
+            find PML in nucleus in fixed cells
         </description>
 
 	<developers>
@@ -33,7 +33,7 @@
 	<properties>
                 <imagej.app.directory>/opt/Fiji.app/</imagej.app.directory>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<main-class>GFP_PV_PNN.jar</main-class>
+		<main-class>PML_FixedCells.jar</main-class>
 	</properties>
 
 	<dependencies>
