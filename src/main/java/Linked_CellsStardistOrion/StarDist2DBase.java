@@ -1,4 +1,4 @@
-package PML_FixedCellsStardistOrion;
+package Linked_CellsStardistOrion;
 
 import java.net.URL;
 import java.util.List;

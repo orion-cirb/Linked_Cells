@@ -1,4 +1,4 @@
-package PML_FixedCellsStardistOrion;
+package Linked_CellsStardistOrion;
 
 import java.util.ArrayList;
 import java.util.Arrays;

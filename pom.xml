@@ -7,12 +7,12 @@
 
         
 	<groupId>cirb</groupId>
-	<artifactId>PML_FixedCells</artifactId>
+	<artifactId>Linked_Cells</artifactId>
 	<version>1.0.0</version>
         <packaging>jar</packaging>
-	<name>PML_FixedCells</name>
+	<name>Linked_Cells</name>
 	<description>
-            find PML in nucleus in fixed cells
+            find Linked cells
         </description>
 
 	<developers>
@@ -33,7 +33,7 @@
 	<properties>
                 <imagej.app.directory>/opt/Fiji.app/</imagej.app.directory>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<main-class>PML_FixedCells.jar</main-class>
+		<main-class>Linked_Cells.jar</main-class>
 	</properties>
 
 	<dependencies>

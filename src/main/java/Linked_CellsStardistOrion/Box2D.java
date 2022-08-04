@@ -1,4 +1,4 @@
-package PML_FixedCellsStardistOrion;
+package Linked_CellsStardistOrion;
 
 public class Box2D {
     
