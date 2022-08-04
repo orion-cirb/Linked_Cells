@@ -75,8 +75,8 @@ public class Tools {
     private final double stardistPercentileTop = 99.8;
     private final double stardistProbThreshCell = 0.5;
     private final double stardistOverlayThreshCell = 0.25;
-    private File modelsPath = new File(IJ.getDirectory("imagej")+File.separator+"models");
-    private String stardistOutput = "Label Image"; 
+    private final File modelsPath = new File(IJ.getDirectory("imagej")+File.separator+"models");
+    private final String stardistOutput = "Label Image"; 
     public String stardistCellModel = "";
 
     public String[] channelNames = {"Cells1", "Cells2"};
@@ -122,21 +122,7 @@ public class Tools {
         Arrays.sort(models);
         return(models);
     }   
-    
-    /* Median filter 
-     * Using CLIJ2
-     * @param ClearCLBuffer
-     * @param sizeXY
-     * @param sizeZ
-     */ 
-    public ClearCLBuffer median_filter(ClearCLBuffer  imgCL, double sizeXY, double sizeZ) {
-        ClearCLBuffer imgCLMed = clij2.create(imgCL);
-        clij2.mean3DBox(imgCL, imgCLMed, sizeXY, sizeXY, sizeZ);
-        clij2.release(imgCL);
-        return(imgCLMed);
-    }
-    
-    
+        
     /**
      * Filter population by size
      */
@@ -201,9 +187,9 @@ public class Tools {
             gd.addMessage("No StarDist model found in Fiji !!", Font.getFont("Monospace"), Color.red);
             gd.addFileField("StarDist cell model :", stardistCellModel);
         }
-        gd.addMessage("Cells detection", Font.getFont("Monospace"), Color.blue);
-        gd.addNumericField("Min cell volume : ", minCell);
-        gd.addNumericField("Max cell volume : ", maxCell);
+//        gd.addMessage("Cells detection", Font.getFont("Monospace"), Color.blue);
+//        gd.addNumericField("Min cell volume : ", minCell);
+//        gd.addNumericField("Max cell volume : ", maxCell);
         gd.addMessage("Image calibration", Font.getFont("Monospace"), Color.blue);
         gd.addNumericField("XY Pixel size : ", cal.pixelWidth);
         gd.addNumericField("Z Pixel size  : ", cal.pixelDepth);
@@ -223,8 +209,8 @@ public class Tools {
             IJ.error("No model specify !!");
             return(null);
         }
-        minCell = gd.getNextNumber();
-        maxCell = gd.getNextNumber();
+//        minCell = gd.getNextNumber();
+//        maxCell = gd.getNextNumber();
         cal.pixelWidth = cal.pixelHeight = gd.getNextNumber();
         cal.pixelDepth = gd.getNextNumber();
         return(chChoices);
@@ -369,7 +355,7 @@ public class Tools {
        // resize to be in a stardist-friendly scale
        int width = imgCell.getWidth();
        int height = imgCell.getHeight();
-       float factor = 0.25f;
+       float factor = 0.5f;
        boolean resized = false;
        if (imgCell.getWidth() > 512) {
            img = imgCell.resize((int)(width*factor), (int)(height*factor), 1, "none");
@@ -378,26 +364,18 @@ public class Tools {
        else
            img = new Duplicator().run(imgCell);
        
-       //IJ.run(img, "Remove Outliers", "block_radius_x=10 block_radius_y=10 standard_deviations=1 stack");
-       ClearCLBuffer imgCL = clij2.push(img);
-       ClearCLBuffer imgCLM = clij2.create(imgCL);
-       imgCLM = median_filter(imgCL, 2, 2);
-       clij2.release(imgCL);
-       ImagePlus imgM = clij2.pull(imgCLM);
-       clij2.release(imgCLM);
-       flush_close(img);
-
        // Go StarDist
        File starDistModelFile = new File(stardistModel);
        StarDist2D star = new StarDist2D(syncObject, starDistModelFile);
-       star.loadInput(imgM);
+       star.loadInput(img);
        star.setParams(stardistPercentileBottom, stardistPercentileTop, stardistProbThreshCell, stardistOverlayThreshCell, stardistOutput);
        star.run();
-       flush_close(imgM);
+       flush_close(img);
        // label in 3D
        ImagePlus imgCells = (resized) ? star.associateLabels().resize(width, height, 1, "none") : star.associateLabels();
        imgCells.setCalibration(cal);
-       Objects3DIntPopulation nPop = sizeFilterPop(new Objects3DIntPopulation(ImageHandler.wrap(imgCells)), minCell, maxCell);
+       Objects3DIntPopulation nPop = new Objects3DIntPopulation(ImageHandler.wrap(imgCells));
+       //Objects3DIntPopulation nPop = sizeFilterPop(new Objects3DIntPopulation(ImageHandler.wrap(imgCells)), minCell, maxCell);
        flush_close(imgCells);
        return(nPop);
    }

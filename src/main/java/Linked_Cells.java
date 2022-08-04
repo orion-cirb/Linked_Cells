@@ -150,14 +150,19 @@ public class Linked_Cells implements PlugIn {
                 tools.flush_close(imgCells2);
                         
                 // Find cells colocalization
-                Objects3DIntPopulation cellsColoc = tools.findColoc(cells1Pop, cells2Pop);
+                Objects3DIntPopulation cellsColocPop = tools.findColoc(cells1Pop, cells2Pop);
+                int cellsColoc = cellsColocPop.getNbObjects();
+                System.out.println(cellsColoc +" colocalized cells found");
                 
                 // Save objects image
                 ImageHandler imhCells1Objects = ImageHandler.wrap(imgCells1).createSameDimensions();
                 ImageHandler imhCells2Objects = imhCells1Objects.duplicate();
+                ImageHandler imhCellsColocObjects = imhCells1Objects.duplicate();
                 cells1Pop.drawInImage(imhCells1Objects);
                 cells2Pop.drawInImage(imhCells2Objects);
-                ImagePlus[] imgColors = {imhCells1Objects.getImagePlus(), imhCells2Objects.getImagePlus()};
+                cellsColocPop.drawInImage(imhCellsColocObjects);
+                
+                ImagePlus[] imgColors = {imhCells1Objects.getImagePlus(), imhCells2Objects.getImagePlus(),null,imhCellsColocObjects.getImagePlus()};
                 ImagePlus imgObjects = new RGBStackMerge().mergeHyperstacks(imgColors, false);
                 imgObjects.setCalibration(tools.cal);
                 IJ.run(imgObjects, "Enhance Contrast", "saturated=0.35");
@@ -166,11 +171,12 @@ public class Linked_Cells implements PlugIn {
                 tools.flush_close(imgObjects);
                 tools.flush_close(imhCells1Objects.getImagePlus());
                 tools.flush_close(imhCells2Objects.getImagePlus());
+                tools.flush_close(imhCellsColocObjects.getImagePlus());
                 tools.flush_close(imgCells1);
                 
                 // Write results
                 IJ.showStatus("Writing results ...");
-                outPutResults.write(rootName+"\t"+cells1Pop.getNbObjects()+"\t"+cells2Pop.getNbObjects()+"\t"+cellsColoc.getNbObjects()+"\n");
+                outPutResults.write(rootName+"\t"+totalCells1+"\t"+totalCells2+"\t"+cellsColoc+"\n");
                 outPutResults.flush();
             }
         } catch (IOException | FormatException | DependencyException | ServiceException | io.scif.DependencyException ex) {
