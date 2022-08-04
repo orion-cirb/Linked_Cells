@@ -162,7 +162,7 @@ public class Linked_Cells implements PlugIn {
                 cells2Pop.drawInImage(imhCells2Objects);
                 cellsColocPop.drawInImage(imhCellsColocObjects);
                 
-                ImagePlus[] imgColors = {imhCells1Objects.getImagePlus(), imhCells2Objects.getImagePlus(),null,imhCellsColocObjects.getImagePlus()};
+                ImagePlus[] imgColors = {imhCells1Objects.getImagePlus(), imhCells2Objects.getImagePlus(),null,null,imhCellsColocObjects.getImagePlus()};
                 ImagePlus imgObjects = new RGBStackMerge().mergeHyperstacks(imgColors, false);
                 imgObjects.setCalibration(tools.cal);
                 IJ.run(imgObjects, "Enhance Contrast", "saturated=0.35");
